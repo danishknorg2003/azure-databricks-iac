@@ -1,0 +1,288 @@
+# =============================================================================
+# WHAT: Azure DevOps YAML pipeline that runs Terraform Init/Validate/Fmt/Plan/
+#       (manual approval)/Apply/(optional Destroy) against the azure-databricks
+#       IaC project, parameterized for dev / test / prod.
+# WHY : Encodes a safe, auditable, repeatable deployment process: nothing is
+#       ever applied without a human-approved plan, state is remote & locked,
+#       and credentials come from a Service Connection (OIDC/Workload Identity
+#       Federation) rather than secrets in code.
+# HOW : One pipeline, parameterized by `environment`. Each stage is a separate
+#       Azure DevOps Stage so approvals/gates can be attached at the Environment
+#       level (Pipelines -> Environments -> <env> -> Approvals and checks).
+# =============================================================================
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - terraform/*
+      - environments/*
+
+pr:
+  branches:
+    include:
+      - main
+
+parameters:
+  - name: environment
+    displayName: "Target environment"
+    type: string
+    default: dev
+    values:
+      - dev
+      - test
+      - prod
+  - name: runDestroy
+    displayName: "Run terraform destroy instead of apply (DANGEROUS)"
+    type: boolean
+    default: false
+
+variables:
+  # Variable group per environment holds ARM_* / backend / Databricks values.
+  # Create groups named exactly: tf-databricks-dev, tf-databricks-test, tf-databricks-prod
+  - group: tf-databricks-${{ parameters.environment }}
+  - name: tfWorkingDir
+    value: "terraform"
+  - name: tfVarFile
+    value: "environments/${{ parameters.environment }}/${{ parameters.environment }}.tfvars"
+  - name: backendKey
+    value: "${{ parameters.environment }}.terraform.tfstate"
+
+pool:
+  vmImage: "ubuntu-latest"
+
+stages:
+
+  # ---------------------------------------------------------------------------
+  # STAGE 1: Terraform Init
+  # ---------------------------------------------------------------------------
+  - stage: Init
+    displayName: "1. Terraform Init"
+    jobs:
+      - job: Init
+        displayName: "terraform init"
+        steps:
+          - task: TerraformInstaller@1
+            displayName: "Install Terraform"
+            inputs:
+              terraformVersion: "1.7.5"
+
+          - task: AzureCLI@2
+            displayName: "terraform init (remote backend)"
+            inputs:
+              azureSubscription: "$(serviceConnectionName)"
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                set -euo pipefail
+                export ARM_CLIENT_ID=$servicePrincipalId
+                export ARM_TENANT_ID=$tenantId
+                export ARM_USE_OIDC=true
+                export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
+
+                cd $(tfWorkingDir)
+                terraform init \
+                  -backend-config="resource_group_name=$(backendResourceGroup)" \
+                  -backend-config="storage_account_name=$(backendStorageAccount)" \
+                  -backend-config="container_name=$(backendContainerName)" \
+                  -backend-config="key=$(backendKey)" \
+                  -input=false
+
+  # ---------------------------------------------------------------------------
+  # STAGE 2: Terraform Validate
+  # ---------------------------------------------------------------------------
+  - stage: Validate
+    displayName: "2. Terraform Validate"
+    dependsOn: Init
+    jobs:
+      - job: Validate
+        displayName: "terraform validate"
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: "1.7.5"
+          - task: AzureCLI@2
+            displayName: "terraform init + validate"
+            inputs:
+              azureSubscription: "$(serviceConnectionName)"
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                set -euo pipefail
+                export ARM_CLIENT_ID=$servicePrincipalId
+                export ARM_TENANT_ID=$tenantId
+                export ARM_USE_OIDC=true
+                export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
+
+                cd $(tfWorkingDir)
+                terraform init -backend=false -input=false
+                terraform validate
+
+  # ---------------------------------------------------------------------------
+  # STAGE 3: Terraform Format Check
+  # ---------------------------------------------------------------------------
+  - stage: FormatCheck
+    displayName: "3. Terraform Format Check"
+    dependsOn: Validate
+    jobs:
+      - job: FmtCheck
+        displayName: "terraform fmt -check"
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: "1.7.5"
+          - bash: |
+              set -euo pipefail
+              cd $(tfWorkingDir)
+              terraform fmt -recursive -check -diff
+            displayName: "terraform fmt -check -diff"
+
+  # ---------------------------------------------------------------------------
+  # STAGE 4: Terraform Plan
+  # ---------------------------------------------------------------------------
+  - stage: Plan
+    displayName: "4. Terraform Plan"
+    dependsOn: FormatCheck
+    jobs:
+      - job: Plan
+        displayName: "terraform plan"
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: "1.7.5"
+          - task: AzureCLI@2
+            displayName: "terraform init + plan"
+            inputs:
+              azureSubscription: "$(serviceConnectionName)"
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                set -euo pipefail
+                export ARM_CLIENT_ID=$servicePrincipalId
+                export ARM_TENANT_ID=$tenantId
+                export ARM_USE_OIDC=true
+                export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
+                export DATABRICKS_AZURE_RESOURCE_ID="" # left blank; provider resolves via workspace_url + MI
+
+                cd $(tfWorkingDir)
+                terraform init \
+                  -backend-config="resource_group_name=$(backendResourceGroup)" \
+                  -backend-config="storage_account_name=$(backendStorageAccount)" \
+                  -backend-config="container_name=$(backendContainerName)" \
+                  -backend-config="key=$(backendKey)" \
+                  -input=false
+
+                terraform plan \
+                  -var-file="../$(tfVarFile)" \
+                  -out=tfplan \
+                  -input=false
+
+          - publish: "$(tfWorkingDir)/tfplan"
+            artifact: tfplan-${{ parameters.environment }}
+            displayName: "Publish plan artifact"
+
+  # ---------------------------------------------------------------------------
+  # STAGE 5: Manual Approval
+  # ---------------------------------------------------------------------------
+  - stage: ManualApproval
+    displayName: "5. Manual Approval"
+    dependsOn: Plan
+    jobs:
+      - deployment: ApprovalGate
+        displayName: "Await approval to apply to ${{ parameters.environment }}"
+        environment: "databricks-${{ parameters.environment }}" # Configure Approvals & Checks on this Environment in Azure DevOps
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - bash: echo "Approved for ${{ parameters.environment }}. Proceeding to apply."
+                  displayName: "Approval acknowledged"
+
+  # ---------------------------------------------------------------------------
+  # STAGE 6: Terraform Apply
+  # ---------------------------------------------------------------------------
+  - stage: Apply
+    displayName: "6. Terraform Apply"
+    dependsOn: ManualApproval
+    condition: and(succeeded(), eq('${{ parameters.runDestroy }}', 'False'))
+    jobs:
+      - job: Apply
+        displayName: "terraform apply"
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: "1.7.5"
+          - download: current
+            artifact: tfplan-${{ parameters.environment }}
+          - task: AzureCLI@2
+            displayName: "terraform init + apply (using saved plan)"
+            inputs:
+              azureSubscription: "$(serviceConnectionName)"
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                set -euo pipefail
+                export ARM_CLIENT_ID=$servicePrincipalId
+                export ARM_TENANT_ID=$tenantId
+                export ARM_USE_OIDC=true
+                export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
+
+                cd $(tfWorkingDir)
+                terraform init \
+                  -backend-config="resource_group_name=$(backendResourceGroup)" \
+                  -backend-config="storage_account_name=$(backendStorageAccount)" \
+                  -backend-config="container_name=$(backendContainerName)" \
+                  -backend-config="key=$(backendKey)" \
+                  -input=false
+
+                terraform apply -input=false -auto-approve \
+                  "$(Pipeline.Workspace)/tfplan-${{ parameters.environment }}/tfplan"
+
+  # ---------------------------------------------------------------------------
+  # STAGE 7: Terraform Destroy (optional, manually triggered via runDestroy param)
+  # ---------------------------------------------------------------------------
+  - stage: Destroy
+    displayName: "7. Terraform Destroy (optional)"
+    dependsOn: ManualApproval
+    condition: and(succeeded(), eq('${{ parameters.runDestroy }}', 'True'))
+    jobs:
+      - deployment: DestroyGate
+        displayName: "Second approval required for destroy"
+        environment: "databricks-${{ parameters.environment }}-destroy" # attach a stricter approval group here
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: TerraformInstaller@1
+                  inputs:
+                    terraformVersion: "1.7.5"
+                - task: AzureCLI@2
+                  displayName: "terraform init + destroy"
+                  inputs:
+                    azureSubscription: "$(serviceConnectionName)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    addSpnToEnvironment: true
+                    inlineScript: |
+                      set -euo pipefail
+                      export ARM_CLIENT_ID=$servicePrincipalId
+                      export ARM_TENANT_ID=$tenantId
+                      export ARM_USE_OIDC=true
+                      export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
+
+                      cd $(tfWorkingDir)
+                      terraform init \
+                        -backend-config="resource_group_name=$(backendResourceGroup)" \
+                        -backend-config="storage_account_name=$(backendStorageAccount)" \
+                        -backend-config="container_name=$(backendContainerName)" \
+                        -backend-config="key=$(backendKey)" \
+                        -input=false
+
+                      terraform destroy -input=false -auto-approve \
+                        -var-file="../$(tfVarFile)"
