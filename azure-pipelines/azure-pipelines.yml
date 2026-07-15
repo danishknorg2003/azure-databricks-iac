@@ -44,7 +44,7 @@ variables:
   # Create groups named exactly: tf-databricks-dev, tf-databricks-test, tf-databricks-prod
   #- group: tf-databricks-${{ parameters.environment }}
   - group: Common - All
-  - group: Common-${{ parameters.environment }}
+  - group: Common - Dev
   - name: tfWorkingDir
     value: "terraform"
   - name: tfVarFile
