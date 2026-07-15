@@ -15,10 +15,10 @@ trigger: none
   # branches:
    # include:
    #   - main
-  paths:
-    include:
-      - terraform/*
-      - environments/*
+#  paths:
+#    include:
+#      - terraform/*
+#      - environments/*
 
 pr:
   branches:
