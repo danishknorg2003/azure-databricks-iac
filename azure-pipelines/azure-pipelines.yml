@@ -12,9 +12,9 @@
 # =============================================================================
 
 trigger: none
-  branches:
-    include:
-      - main
+  # branches:
+   # include:
+   #   - main
   paths:
     include:
       - terraform/*
