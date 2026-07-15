@@ -11,7 +11,7 @@
 #       level (Pipelines -> Environments -> <env> -> Approvals and checks).
 # =============================================================================
 
-trigger:
+trigger: none
   branches:
     include:
       - main
