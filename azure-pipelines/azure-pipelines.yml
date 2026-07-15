@@ -72,7 +72,7 @@ stages:
           - task: AzureCLI@2
             displayName: "terraform init (remote backend)"
             inputs:
-              azureSubscription: "$(serviceConnectionName)"
+              azureSubscription: "$(azureServiceConnection)"
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
@@ -107,7 +107,7 @@ stages:
           - task: AzureCLI@2
             displayName: "terraform init + validate"
             inputs:
-              azureSubscription: "$(serviceConnectionName)"
+              azureSubscription: "$(azureServiceConnection)"
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
@@ -157,7 +157,7 @@ stages:
           - task: AzureCLI@2
             displayName: "terraform init + plan"
             inputs:
-              azureSubscription: "$(serviceConnectionName)"
+              azureSubscription: "$(azureServiceConnection)"
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
@@ -222,7 +222,7 @@ stages:
           - task: AzureCLI@2
             displayName: "terraform init + apply (using saved plan)"
             inputs:
-              azureSubscription: "$(serviceConnectionName)"
+              azureSubscription: "$(azureServiceConnection)"
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
@@ -265,7 +265,7 @@ stages:
                 - task: AzureCLI@2
                   displayName: "terraform init + destroy"
                   inputs:
-                    azureSubscription: "$(serviceConnectionName)"
+                    azureSubscription: "$(azureServiceConnection)"
                     scriptType: bash
                     scriptLocation: inlineScript
                     addSpnToEnvironment: true
