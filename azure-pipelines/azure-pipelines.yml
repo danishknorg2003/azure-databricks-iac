@@ -42,7 +42,9 @@ parameters:
 variables:
   # Variable group per environment holds ARM_* / backend / Databricks values.
   # Create groups named exactly: tf-databricks-dev, tf-databricks-test, tf-databricks-prod
-  - group: tf-databricks-${{ parameters.environment }}
+  #- group: tf-databricks-${{ parameters.environment }}
+  - group: Common - All
+  - group: Common-${{ parameters.environment }}
   - name: tfWorkingDir
     value: "terraform"
   - name: tfVarFile
