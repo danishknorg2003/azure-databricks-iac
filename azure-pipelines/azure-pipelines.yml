@@ -170,6 +170,7 @@ stages:
                 export ARM_TENANT_ID=$tenantId
                 export ARM_USE_OIDC=true
                 export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
+                 export ARM_OIDC_TOKEN=$idToken
                 export DATABRICKS_AZURE_RESOURCE_ID="" # left blank; provider resolves via workspace_url + MI
 
                 cd $(tfWorkingDir)
