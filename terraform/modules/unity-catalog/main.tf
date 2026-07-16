@@ -30,10 +30,10 @@ resource "databricks_external_location" "this" {
 
 # 3. Catalog rooted at the external location.
 resource "databricks_catalog" "this" {
-  name          = var.catalog_name
-  comment       = "Primary catalog provisioned by Terraform."
-  storage_root  = databricks_external_location.this.url
-  owner         = var.catalog_owner
+  name         = var.catalog_name
+  comment      = "Primary catalog provisioned by Terraform."
+  storage_root = databricks_external_location.this.url
+  owner        = var.catalog_owner
 
   depends_on = [databricks_external_location.this]
 }
