@@ -41,3 +41,11 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "public_subnet_network_security_group_association_id" {
+  type = string
+}
+
+variable "private_subnet_network_security_group_association_id" {
+  type = string
+}

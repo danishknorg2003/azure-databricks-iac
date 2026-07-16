@@ -29,3 +29,11 @@ output "private_subnet_id" {
 output "nsg_id" {
   value = azurerm_network_security_group.this.id
 }
+
+output "public_subnet_network_security_group_association_id" {
+  value = azurerm_subnet_network_security_group_association.this["public"].id
+}
+
+output "private_subnet_network_security_group_association_id" {
+  value = azurerm_subnet_network_security_group_association.this["private"].id
+}

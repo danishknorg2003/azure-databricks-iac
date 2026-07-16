@@ -68,6 +68,8 @@ module "databricks_workspace" {
   tags                        = local.common_tags
 
   depends_on = [module.network]
+  public_subnet_network_security_group_association_id  = module.network.public_subnet_network_security_group_association_id
+  private_subnet_network_security_group_association_id = module.network.private_subnet_network_security_group_association_id
 }
 
 # Optional diagnostic settings for the Databricks workspace.
