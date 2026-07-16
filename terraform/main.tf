@@ -67,7 +67,7 @@ module "databricks_workspace" {
   private_subnet_name         = module.network.private_subnet_name
   tags                        = local.common_tags
 
-  depends_on = [module.network]
+  depends_on                                           = [module.network]
   public_subnet_network_security_group_association_id  = module.network.public_subnet_network_security_group_association_id
   private_subnet_network_security_group_association_id = module.network.private_subnet_network_security_group_association_id
 }
