@@ -46,25 +46,25 @@ resource "databricks_schema" "this" {
 }
 
 # 5. Sample managed table (Delta) to validate end-to-end read/write.
-resource "databricks_sql_table" "this" {
-  name               = var.table_name
-  catalog_name       = databricks_catalog.this.id
-  schema_name        = databricks_schema.this.name
-  table_type         = "MANAGED"
-  data_source_format = "DELTA"
+# resource "databricks_sql_table" "this" {
+#   name               = var.table_name
+#   catalog_name       = databricks_catalog.this.id
+#   schema_name        = databricks_schema.this.name
+#   table_type         = "MANAGED"
+#   data_source_format = "DELTA"
 
-  column {
-    name = "id"
-    type = "BIGINT"
-  }
+#   column {
+#     name = "id"
+#     type = "BIGINT"
+#   }
 
-  column {
-    name = "created_at"
-    type = "TIMESTAMP"
-  }
+#   column {
+#     name = "created_at"
+#     type = "TIMESTAMP"
+#   }
 
-  comment = "Sample table created by Terraform to validate Unity Catalog end-to-end."
-}
+#   comment = "Sample table created by Terraform to validate Unity Catalog end-to-end."
+# }
 
 # 6. Grants -- dynamic block driven by a map so principals/privileges are fully data-driven.
 resource "databricks_grants" "catalog" {

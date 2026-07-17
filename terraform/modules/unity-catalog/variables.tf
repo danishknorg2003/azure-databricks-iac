@@ -42,10 +42,10 @@ variable "schema_name" {
   default = "default_schema"
 }
 
-variable "table_name" {
-  type    = string
-  default = "sample_table"
-}
+# variable "table_name" {
+#   type    = string
+#   default = "sample_table"
+# }
 
 variable "catalog_owner" {
   description = "Principal (user, group, or service principal) that owns the catalog."

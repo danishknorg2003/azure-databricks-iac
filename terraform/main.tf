@@ -102,8 +102,8 @@ module "unity_catalog" {
   container_name               = module.storage.container_name
   catalog_name                 = var.catalog_name
   schema_name                  = var.schema_name
-  table_name                   = var.table_name
-  catalog_owner                = var.catalog_owner
+  # table_name                   = var.table_name
+  catalog_owner = var.catalog_owner
 
   # Unity Catalog storage credential validation needs the RBAC role assignments to have
   # propagated on the storage account first -- Terraform can't infer this cross-provider

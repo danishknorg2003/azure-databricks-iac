@@ -18,7 +18,7 @@ databricks_managed_rg_name  = "rg-databricks-dev-managed"
 access_connector_name       = "ac-databricks-dev"
 catalog_name                = "dev_catalog"
 schema_name                 = "default_schema"
-table_name                  = "sample_table"
+#table_name                  = "sample_table"
 catalog_owner                = "account users"
 enable_diagnostic_settings  = false
 

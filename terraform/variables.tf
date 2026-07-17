@@ -83,10 +83,10 @@ variable "schema_name" {
   default = "default_schema"
 }
 
-variable "table_name" {
-  type    = string
-  default = "sample_table"
-}
+# variable "table_name" {
+#   type    = string
+#   default = "sample_table"
+# }
 
 variable "catalog_owner" {
   description = "Account-level user/group/service principal that owns the catalog (e.g. an Azure AD group)."
